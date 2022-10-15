@@ -1,10 +1,12 @@
 /**
 * @name Freemoji2
-* @displayName Freemoji
+* @displayName Freemoji2
 * @description Send emoji external emoji and animated emoji without Nitro.
 * @author Qb, An0, SB
 * @license LGPLv3 - https://www.gnu.org/licenses/lgpl-3.0.txt
 * @version 1.7.5
+* @source https://github.com/shreyash-b/Freemoji2
+* @updateUrl https://raw.githubusercontent.com/shreyash-b/Freemoji2/Freemoji.plugin.js
 */
 /*@cc_on
 @if (@_jscript)
