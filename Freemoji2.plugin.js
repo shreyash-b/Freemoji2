@@ -1,5 +1,5 @@
 /**
-* @name Freemoji
+* @name Freemoji2
 * @displayName Freemoji
 * @description Send emoji external emoji and animated emoji without Nitro.
 * @author Qb, An0, SB
@@ -33,7 +33,7 @@ module.exports = (() => {
                     github_username: 'shreyash-b'
                 }
             ],
-            version: '1.7.4',
+            version: '1.7.5',
             description: 'Send emoji external emoji and animated emoji without Nitro.',
             github: 'https://github.com/shreyash-b/Freemoji2',
             github_raw: 'https://raw.githubusercontent.com/shreyash-b/Freemoji2/Freemoji.plugin.js'
