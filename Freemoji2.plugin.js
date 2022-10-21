@@ -4,7 +4,7 @@
 * @description Send emoji external emoji and animated emoji without Nitro.
 * @author Qb, An0, SB
 * @license LGPLv3 - https://www.gnu.org/licenses/lgpl-3.0.txt
-* @version 1.7.5
+* @version 1.7.6
 * @source https://github.com/shreyash-b/Freemoji2
 * @updateUrl https://raw.githubusercontent.com/shreyash-b/Freemoji2/Freemoji.plugin.js
 */
@@ -35,13 +35,13 @@ module.exports = (() => {
                     github_username: 'shreyash-b'
                 }
             ],
-            version: '1.7.5',
+            version: '1.7.6',
             description: 'Send emoji external emoji and animated emoji without Nitro.',
             github: 'https://github.com/shreyash-b/Freemoji2',
             github_raw: 'https://raw.githubusercontent.com/shreyash-b/Freemoji2/Freemoji.plugin.js'
         },
         changelog: [
-            { title: 'Plugin Working Again', types: 'fixed', items: ['Plugin fixed to work again after Discord update.'] }
+            { title: 'Fixes', types: 'fixed', items: ['Message Spliting Fixed', 'Emoji Picker grayscale filter removed (sending from there doesn\'t work yet)'] }
         ],
         defaultConfig: [
             {
@@ -166,6 +166,11 @@ module.exports = (() => {
                 const Emojis = WebpackModules.findByUniqueProperties(['getDisambiguatedEmojiContext', 'searchWithoutFetchingLatest']);
                 const EmojiParser = WebpackModules.findByUniqueProperties(['parse', 'parsePreprocessor', 'unparse']);
                 const EmojiPicker = WebpackModules.findByUniqueProperties(['useEmojiSelectHandler']);
+                // DiscordModules.EmojiInfo.isEmojiFiltered = (...a) => {return false}
+                // DiscordModules.EmojiInfo.isEmojiDisabled = (...a) => {return false}
+                // DiscordModules.EmojiInfo.isEmojiPremiumLocked = (...a) => {return false}
+                DiscordModules.EmojiInfo.isEmojiFilteredOrLocked = (...a) => {return false}
+                console.log(Emojis)
                 const MessageUtilities = WebpackModules.getByProps("sendMessage");
                 const EmojiFilter = WebpackModules.getByProps('getEmojiUnavailableReason');
 
@@ -185,9 +190,11 @@ module.exports = (() => {
 
                     patch() {
                         // console.log('here')
-                        console.log(MessageUtilities)
-                        Patcher.after(DiscordModules.EmojiInfo, "isEmojiFiltered", (thisObject, methodArguments, returnValue) => {
-                            return returnValue || DiscordModules.EmojiInfo.isEmojiDisabled(methodArguments[0], methodArguments[1]);
+                        // console.log(MessageUtilities)
+                        Patcher.after(DiscordModules.EmojiInfo, "isEmojiDisabled", (thisObject, methodArguments, originalFn) => {
+                            // console.log(returnValue || !DiscordModules.EmojiInfo.isEmojiDisabled(methodArguments[0], methodArguments[1]))
+                            // return returnValue || !DiscordModules.EmojiInfo.isEmojiDisabled(methodArguments[0], methodArguments[1]);
+                            return false
                         });
                         // make emote pretend locked emoji are unlocked
                         Patcher.after(Emojis, 'searchWithoutFetchingLatest', (_, args, ret) => {
@@ -270,22 +277,30 @@ module.exports = (() => {
                         // BdApi.Plugins.isEnabled("EmoteReplacer") || 
 
                         
-                        Patcher.before(MessageUtilities, 'sendMessage', (thisObj, args, originalFn) => {
-                            originalFn = MessageUtilities.sendMessage
-                            if (!this.settings.split || BdApi.Plugins.isEnabled("EmoteReplacer")) return originalFn.call(thisObj, args);
+                        BdApi.Plugins.isEnabled("EmoteReplacer") || Patcher.instead(MessageUtilities, 'sendMessage', (thisObj, args, originalFn) => {
+                            if (!this.settings.split || BdApi.Plugins.isEnabled("EmoteReplacer")) return originalFn.apply(thisObj, args);
                             const [channel, message] = args;
                             const split = message.content.split(EMOJI_SPLIT_LINK_REGEX).map(s => s.trim()).filter(s => s.length);
-                            
-                            if (split.length == 1) return
-                            
-                            //  a workaround as this function is being called *before* the actual function
-                            args[1].content = split[split.length-1]
-                            
-                            
-                            for (let i = 0; i < split.length-1; i++) {
+                            if (split.length <= 1) return originalFn.apply(thisObj, args);
+
+
+                            const promises = [];
+                            //handling the case when user replies to a message
+                            promises.push(new Promise((resolve, reject) => {
+                                window.setTimeout(() => {
+                                    originalFn.apply(thisObj, [channel, { content: split[0], validNonShortcutEmojis: []}, args[2], args[3]]).then(resolve).catch(reject);
+                                }, 0);
+                            }));
+
+                            for (let i = 1; i < split.length; i++) {
                                 const text = split[i];
-                                MessageUtilities.sendMessage.call(thisObj, channel, { content: text, validNonShortcutEmojis: [] })
+                                promises.push(new Promise((resolve, reject) => {
+                                    window.setTimeout(() => {
+                                        originalFn.apply(thisObj, [channel, { content: text, validNonShortcutEmojis: []}]).then(resolve).catch(reject);
+                                    }, i * 100);
+                                }));
                             }
+                            return Promise.all(promises).then(ret => ret[ret.length - 1]);
                         });
                     }
 
